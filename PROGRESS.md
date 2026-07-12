@@ -18,3 +18,19 @@
 
 **Next up:**
 - Card 2: Connect Supabase — install `@supabase/supabase-js`, set up client in `lib/`, wire real env vars into `.env.local` (not committed)
+
+## Session 2 — 2026-07-12
+
+**Done:**
+- Installed `@supabase/supabase-js`
+- Retrieved Supabase project URL + anon key from dashboard, added to `.env.local` (not committed)
+- Created `lib/supabase/client.ts` — browser-side Supabase client
+- Smoke-tested the connection via console.log on homepage — confirmed "Supabase client initialized: yes" in server terminal
+- Removed test code, committed clean
+
+**Gotchas:**
+- None this session — connection worked on first try.
+
+**Next up:**
+- Card 3: Build auth (sign up / log in / log out) using Supabase Auth
+- Will need a server-side Supabase client too (different setup than the browser client) once we add server components/route handlers for auth
