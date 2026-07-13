@@ -34,3 +34,20 @@
 **Next up:**
 - Card 3: Build auth (sign up / log in / log out) using Supabase Auth
 - Will need a server-side Supabase client too (different setup than the browser client) once we add server components/route handlers for auth
+
+## Session 3 — 2026-07-12
+
+**Done:**
+- Installed `@supabase/ssr`, created `lib/supabase/server.ts` for server-side auth (cookie-based)
+- Built `/signup` page — email + password sign up via Supabase Auth
+- Built `/login` page — email + password log in
+- Updated homepage to check auth state, show logged-in user's email + log out button, or placeholder if logged out
+- Disabled "Confirm email" in Supabase dashboard (Authentication → Providers → Email) for instant demo sign-up flow
+- Tested full loop: sign up → auto-login → homepage shows logged in state → log out → back to placeholder — all working
+
+**Gotchas:**
+- `/login` initially 404'd — turned out to be a saving mix-up in Acode (edited the wrong file), not an actual bug. Worth double-checking which file is open before pasting when juggling multiple similar pages.
+- Sign-up and log-in pages are near-duplicates right now (same form, different Supabase call). Left as-is for now — could extract a shared component later if it becomes annoying to maintain, but not worth it yet for two pages.
+
+**Next up:**
+- Card 4: Design DB schema — conversations and messages tables in Supabase, likely with a foreign key to Supabase's built-in auth.users table

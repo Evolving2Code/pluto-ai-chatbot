@@ -14,3 +14,6 @@ Turbopack (Next.js 16's default dev bundler) is not yet supported on Android/arm
 
 ### Dev environment: Termux on Android
 Chose to build entirely on an Android phone via Termux + Claude Code (routed through OpenRouter free tier) as a constraint/challenge and to keep the project genuinely zero-cost during development. Doubles as a good interview story about working within constraints.
+
+### Route protection deferred to Card 5
+Auth (sign up/log in/log out) is built and working, but no middleware/route protection yet — there's nothing to protect until the chat UI (Card 5) exists. Will add protection when that page is built, rather than protecting routes preemptively.
