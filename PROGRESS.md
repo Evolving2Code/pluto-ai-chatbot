@@ -51,3 +51,20 @@
 
 **Next up:**
 - Card 4: Design DB schema — conversations and messages tables in Supabase, likely with a foreign key to Supabase's built-in auth.users table
+
+## Session 4 — 2026-07-12
+
+**Done:**
+- Designed DB schema: `conversations` (id, user_id, title, timestamps) and `messages` (id, conversation_id, role, content, created_at)
+- Enabled Row Level Security (RLS) on both tables, scoped to `auth.uid()` so users can only access their own data
+- Added indexes on `user_id` and `conversation_id` for common query patterns
+- Created `supabase/schema.sql` to track the schema in version control (source of truth going forward, not just Supabase's dashboard)
+- Committed and pushed
+
+**Gotchas:**
+- First attempt to create `conversations` failed — table already existed in Supabase (unclear why, possibly leftover from initial project setup). Investigated further and found `public.messages` also already existed, but with a completely different structure — turned out to be unrelated to Supabase's internal `realtime.messages` table, just a coincidentally-named leftover table in the public schema.
+- Confirmed via `information_schema.tables` (checking `table_schema`) before deciding it was safe to drop and recreate cleanly — no data existed yet, so low risk, but worth verifying schema/ownership before dropping anything in a real project.
+
+**Next up:**
+- Card 5: Build chat UI shell (layout, sidebar, input box)
+- Route protection (deferred from Card 3) should be added once this page exists, since it'll be the first page that actually needs to be gated behind login
