@@ -68,3 +68,20 @@
 **Next up:**
 - Card 5: Build chat UI shell (layout, sidebar, input box)
 - Route protection (deferred from Card 3) should be added once this page exists, since it'll be the first page that actually needs to be gated behind login
+
+## Session 5 — 2026-07-12
+
+**Done:**
+- Added `proxy.ts` (renamed from `middleware.ts` — Next.js 16 convention change) to protect `/chat` routes, redirecting logged-out users to `/login`
+- Built `/chat` page shell: sidebar (conversation list placeholder), message display area, input box — UI only, not yet wired to Gemini or Supabase
+- Fixed a session/cookie mismatch bug (see gotcha below)
+- Verified full flow: logged-out → redirected from `/chat` to `/login`; logged-in → `/chat` shows shell UI correctly
+
+**Gotchas:**
+- Next.js 16 deprecated `middleware.ts` in favor of `proxy.ts` (renamed file + renamed exported function). Initial rename alone didn't fix the actual bug below, so don't assume a rename = working.
+- Bigger issue: after renaming, `/chat` kept redirecting to `/login` even when logged in. Root cause: the browser-side Supabase client (`lib/supabase/client.ts`) was using plain `createClient` from `@supabase/supabase-js`, which stores sessions in **localStorage**. The server-side proxy client uses `@supabase/ssr`, which only reads sessions from **cookies**. The two were completely disconnected — login "worked" (real localStorage session existed) but the proxy could never see it.
+- Fix: switched the browser client to `createBrowserClient` from `@supabase/ssr` too, so both browser and server read/write the same cookie-based session. Debugged via console.log statements in `proxy.ts` showing the auth cookie was present but `getUser()` still returned null — confirmed via research that this is a known gotcha when mixing plain `supabase-js` with `@supabase/ssr` in the same app.
+- Takeaway: when using `@supabase/ssr` anywhere in a Next.js app (for proxy/middleware or server components), use it everywhere — including the browser client — rather than mixing it with plain `supabase-js`.
+
+**Next up:**
+- Card 6: Wire up Gemini API with streaming — this is the core feature, will take the input box from decorative to functional
