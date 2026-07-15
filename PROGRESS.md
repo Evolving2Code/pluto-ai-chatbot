@@ -85,3 +85,7 @@
 
 **Next up:**
 - Card 6: Wire up Gemini API with streaming — this is the core feature, will take the input box from decorative to functional
+
+## Environment change — post-Session 5
+
+Development moved from the original Android/Termux setup (Claude Code via OpenRouter's free tier) to Ubuntu, with Claude Code set up directly through Anthropic's own API. Sessions 1–5 above happened under the old Termux setup and are left unedited as an accurate record; all Termux-specific gotchas (the `--webpack` flag, the "3 Termux sessions" workflow) applied to that environment and should be re-evaluated (not assumed) now that dev has moved to Ubuntu. Going forward, progress entries should reflect the Ubuntu/Anthropic-API environment.
