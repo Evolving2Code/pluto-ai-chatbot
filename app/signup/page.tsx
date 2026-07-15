@@ -34,7 +34,7 @@ export default function SignUp() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-bold mb-6">Sign up for Pluto</h1>
+        <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">Sign up for Pluto</h1>
         <form onSubmit={handleSignUp} className="flex flex-col gap-4">
           <input
             type="email"
@@ -42,7 +42,7 @@ export default function SignUp() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="border rounded p-2"
+            className="border border-gray-300 dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           />
           <input
             type="password"
@@ -51,13 +51,13 @@ export default function SignUp() {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
-            className="border rounded p-2"
+            className="border border-gray-300 dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           />
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>}
           <button
             type="submit"
             disabled={loading}
-            className="bg-black text-white rounded p-2 disabled:opacity-50"
+            className="bg-black text-white dark:bg-white dark:text-black rounded p-2 disabled:opacity-50"
           >
             {loading ? 'Signing up...' : 'Sign up'}
           </button>

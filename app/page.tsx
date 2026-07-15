@@ -26,26 +26,26 @@ export default function Home() {
   if (loading) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center">
-        <p>Loading...</p>
+        <p className="text-gray-900 dark:text-gray-100">Loading...</p>
       </main>
     )
   }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4">
-      <h1 className="text-4xl font-bold">Pluto</h1>
+      <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">Pluto</h1>
       {user ? (
         <>
-          <p className="text-gray-500">Logged in as {user.email}</p>
+          <p className="text-gray-500 dark:text-gray-400">Logged in as {user.email}</p>
           <button
             onClick={handleLogOut}
-            className="bg-black text-white rounded p-2 px-4"
+            className="bg-black text-white dark:bg-white dark:text-black rounded p-2 px-4"
           >
             Log out
           </button>
         </>
       ) : (
-        <p className="mt-2 text-gray-500">Coming soon</p>
+        <p className="mt-2 text-gray-500 dark:text-gray-400">Coming soon</p>
       )}
     </main>
   )
