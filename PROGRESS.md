@@ -89,3 +89,24 @@
 ## Environment change — post-Session 5
 
 Development moved from the original Android/Termux setup (Claude Code via OpenRouter's free tier) to Ubuntu, with Claude Code set up directly through Anthropic's own API. Sessions 1–5 above happened under the old Termux setup and are left unedited as an accurate record; all Termux-specific gotchas (the `--webpack` flag, the "3 Termux sessions" workflow) applied to that environment and should be re-evaluated (not assumed) now that dev has moved to Ubuntu. Going forward, progress entries should reflect the Ubuntu/Anthropic-API environment.
+
+## Session 6 — 2026-07-13
+
+**Done:**
+- Installed `@google/genai` (confirmed current package via search — older `@google/generative-ai` is deprecated)
+- Added `GEMINI_API_KEY` to `.env.local` (server-only, no `NEXT_PUBLIC_` prefix)
+- Built `/api/chat` route: streams responses from Gemini (`gemini-2.5-flash`)
+- Updated `/chat` page to send messages and render streamed responses in real time
+- Found and fixed a dark mode bug: hardcoded Tailwind colors caused washed-out/low-contrast bubbles on dark-mode devices
+- Added proper dark mode using Tailwind 4's built-in `dark:` variant (auto via `prefers-color-scheme`, no config needed)
+- Applied dark mode manually to `/chat`, then had Claude Code replicate the pattern on `/login`, `/signup`, and homepage — reviewed diffs before accepting, all clean
+- Verified all four pages (`/`, `/login`, `/signup`, `/chat`) look consistent and correctly styled in dark mode
+
+**Gotchas:**
+- Dark mode bug was subtle — bubbles looked "faded" rather than obviously broken, due to Chrome's forced-dark-mode color-inversion partially affecting unstyled elements. Confirmed by testing in light mode first.
+- Tailwind 4 is CSS-first — no `tailwind.config.js`, no `darkMode: 'class'` setting needed. `dark:` works automatically out of the box.
+- Two different Supabase project ref cookies seen in proxy logs earlier — likely stale from prior testing, not yet cleaned up. Not currently breaking anything.
+
+**Next up:**
+- Card 7: Persist messages to Supabase (currently messages live only in React state, vanish on refresh)
+- Clean up stale duplicate Supabase cookie at some point
