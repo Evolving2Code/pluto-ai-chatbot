@@ -159,3 +159,21 @@ Development moved from the original Android/Termux setup (Claude Code via OpenRo
 **Next up:**
 - Card 9 (original backlog): Polish UI/UX pass — likely start pulling from the expanded 15-card polish backlog
 - Good candidates to start with: markdown rendering (users are already sending code-adjacent questions), auto-scroll, Enter-to-send
+
+## Session 10 — 2026-07-15
+
+**Done:**
+- Added markdown rendering for assistant messages via `react-markdown`, with syntax-highlighted code blocks via `react-syntax-highlighter` and Tailwind's typography plugin for prose styling
+- Fixed a mobile viewport bug causing the page to load misaligned/zoomed until manually pinch-zoomed — root cause was a missing `viewport` meta export in `layout.tsx`
+- Built a proper mobile-responsive sidebar: hidden by default on mobile with a hamburger toggle, permanently visible on desktop (`md:` breakpoint) — matches patterns from major chat apps (Claude, ChatGPT, etc.)
+- Fixed a second mobile viewport bug: `h-screen` (100vh) doesn't account for the mobile browser address bar, pushing the top bar and input box below the visible fold until scrolling. Fixed by switching to `h-dvh` (dynamic viewport height), a Tailwind-native fix requiring no config changes.
+- Changed Enter/Shift+Enter behavior to match preferred chatbot convention: Enter inserts a newline, Shift+Enter sends
+- Fixed a recurring bug where the internal `__CONVERSATION_ID__..._END__` stream marker leaked into displayed messages. Root cause: marker-stripping logic on the client only ran when a message was the "first" in a conversation, but the server actually sends the marker on every single message — fixed by always checking for and stripping it, regardless of conversation state
+
+**Gotchas:**
+- Two separate "same symptom, different cause" bugs this session (marker leak twice, for different underlying reasons) — good reminder that visually identical bugs aren't always the same root cause; each needs its own actual diagnosis rather than assuming the earlier fix should have covered it
+- Mobile viewport quirks (100vh vs 100dvh, missing viewport meta tag) are common and easy to miss when developing primarily by eyeballing localhost on the same device without testing viewport-sensitive scenarios like page load state or address-bar visibility changes
+
+**Next up:**
+- Continue polish backlog: auto-generated conversation titles, conversation rename/delete, copy button on messages, regenerate/stop generation
+- Still pending: stale duplicate Supabase cookie cleanup (minor, non-blocking)
