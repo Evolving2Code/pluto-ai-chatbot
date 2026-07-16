@@ -128,3 +128,19 @@ Development moved from the original Android/Termux setup (Claude Code via OpenRo
 **Next up:**
 - Card 8: Error handling & loading states (API failures, empty responses, network errors — currently no try/catch anywhere in the chat flow)
 - Still pending: clean up stale duplicate Supabase cookie noticed in proxy logs a couple sessions back
+
+## Session 8 — 2026-07-13
+
+**Done:**
+- Added comprehensive error handling to `/api/chat`: validates input, catches DB errors, catches Gemini API failures, handles mid-stream interruptions — each returns an appropriate status code and message instead of crashing or hanging
+- Added try/catch/finally to the frontend chat submit flow — `finally` guarantees the loading spinner always resolves, even on failure (previously flagged as a risk in the original codebase review)
+- Added a visible error banner in the UI for failed requests
+- Failed message attempts now remove the empty assistant placeholder bubble instead of leaving it blank
+- Tested via deliberately breaking `GEMINI_API_KEY` — confirmed clean failure path end to end, and full recovery once the key was restored
+
+**Also this session:**
+- Discussed deployment timing — decided to keep deploying as the final step (Card 10), but expanded scope: goal is now to make Pluto feel genuinely polished/production-grade (closer to major chatbot apps), not just "done." Added 15 new backlog cards covering markdown rendering, auto-scroll, keyboard shortcuts, mobile responsiveness, conversation rename/delete, multi-turn context, regenerate/stop generation, and visual polish.
+
+**Next up:**
+- Card 9: Polish UI/UX pass — likely start pulling from the new 15-card polish backlog rather than a single generic pass
+- Still pending: multi-turn context fix (Card 12 on new backlog) — currently each message has no memory of the conversation, a real functional gap worth prioritizing relatively soon

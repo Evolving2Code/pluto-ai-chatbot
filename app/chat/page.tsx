@@ -19,37 +19,49 @@ export default function Chat() {
   const [loading, setLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
+  const [error, setError] = useState('')
 
   useEffect(() => {
     loadConversations()
   }, [])
 
   async function loadConversations() {
-    const response = await fetch('/api/conversations')
-    if (response.ok) {
-      const data = await response.json()
-      setConversations(data)
+    try {
+      const response = await fetch('/api/conversations')
+      if (response.ok) {
+        const data = await response.json()
+        setConversations(data)
+      }
+    } catch {
+      // Sidebar failing to load isn't critical — fail silently, chat still works
     }
   }
 
   async function loadConversation(id: string) {
-    const response = await fetch(`/api/conversations/${id}/messages`)
-    if (response.ok) {
-      const data = await response.json()
-      setMessages(data)
-      setConversationId(id)
+    try {
+      const response = await fetch(`/api/conversations/${id}/messages`)
+      if (response.ok) {
+        const data = await response.json()
+        setMessages(data)
+        setConversationId(id)
+        setError('')
+      }
+    } catch {
+      setError('Failed to load conversation. Please try again.')
     }
   }
 
   function startNewConversation() {
     setMessages([])
     setConversationId(null)
+    setError('')
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!input.trim() || loading) return
 
+    setError('')
     const userMessage: Message = { role: 'user', content: input }
     setMessages((prev) => [...prev, userMessage])
     setInput('')
@@ -58,57 +70,71 @@ export default function Chat() {
     const assistantMessage: Message = { role: 'assistant', content: '' }
     setMessages((prev) => [...prev, assistantMessage])
 
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: userMessage.content, conversationId }),
-    })
-
-    if (!response.body) {
-      setLoading(false)
-      return
-    }
-
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    let idExtracted = conversationId !== null
     const isNewConversation = conversationId === null
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage.content, conversationId }),
+      })
 
-      let chunk = decoder.decode(value)
-
-      if (!idExtracted) {
-        buffer += chunk
-        const match = buffer.match(/^__CONVERSATION_ID__(.+?)__END__/)
-        if (match) {
-          setConversationId(match[1])
-          idExtracted = true
-          chunk = buffer.slice(match[0].length)
-          buffer = ''
-        } else {
-          continue
-        }
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(errorText || 'Something went wrong')
       }
 
-      setMessages((prev) => {
-        const updated = [...prev]
-        updated[updated.length - 1] = {
-          ...updated[updated.length - 1],
-          content: updated[updated.length - 1].content + chunk,
+      if (!response.body) {
+        throw new Error('No response received')
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let idExtracted = conversationId !== null
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        let chunk = decoder.decode(value)
+
+        if (!idExtracted) {
+          buffer += chunk
+          const match = buffer.match(/^__CONVERSATION_ID__(.+?)__END__/)
+          if (match) {
+            setConversationId(match[1])
+            idExtracted = true
+            chunk = buffer.slice(match[0].length)
+            buffer = ''
+          } else {
+            continue
+          }
         }
-        return updated
-      })
-    }
 
-    setLoading(false)
+        setMessages((prev) => {
+          const updated = [...prev]
+          updated[updated.length - 1] = {
+            ...updated[updated.length - 1],
+            content: updated[updated.length - 1].content + chunk,
+          }
+          return updated
+        })
+      }
 
-    // Refresh the sidebar if this was a new conversation
-    if (isNewConversation) {
-      loadConversations()
+      if (isNewConversation) {
+        loadConversations()
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Something went wrong. Please try again.'
+      )
+      // Remove the empty assistant placeholder bubble on failure
+      setMessages((prev) => prev.slice(0, -1))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -166,6 +192,12 @@ export default function Chat() {
             </div>
           ))}
         </div>
+
+        {error && (
+          <div className="px-4 py-2 bg-red-50 dark:bg-red-900/30 border-t border-red-200 dark:border-red-800">
+            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="border-t border-gray-200 dark:border-gray-700 p-4 flex gap-2">
           <input
