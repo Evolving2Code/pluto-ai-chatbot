@@ -56,11 +56,35 @@ export async function POST(request: NextRequest) {
     return new Response('Database error', { status: 500 })
   }
 
+  // Load full conversation history so Gemini has memory of prior turns
+  let history: { role: string; content: string }[] = []
+  try {
+    const { data: pastMessages, error: historyError } = await supabase
+      .from('messages')
+      .select('role, content')
+      .eq('conversation_id', currentConversationId)
+      .order('created_at', { ascending: true })
+
+    if (historyError) {
+      return new Response('Failed to load conversation history', { status: 500 })
+    }
+
+    history = pastMessages || []
+  } catch {
+    return new Response('Database error', { status: 500 })
+  }
+
+  // Gemini expects roles as 'user' and 'model', not 'assistant'
+  const contents = history.map((msg) => ({
+    role: msg.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: msg.content }],
+  }))
+
   let response
   try {
     response = await ai.models.generateContentStream({
       model: 'gemini-2.5-flash',
-      contents: message,
+      contents,
     })
   } catch {
     return new Response('Gemini API error — please try again', { status: 502 })

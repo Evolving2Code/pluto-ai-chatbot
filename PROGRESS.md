@@ -144,3 +144,18 @@ Development moved from the original Android/Termux setup (Claude Code via OpenRo
 **Next up:**
 - Card 9: Polish UI/UX pass — likely start pulling from the new 15-card polish backlog rather than a single generic pass
 - Still pending: multi-turn context fix (Card 12 on new backlog) — currently each message has no memory of the conversation, a real functional gap worth prioritizing relatively soon
+
+## Session 9 — 2026-07-15
+
+**Done:**
+- Fixed multi-turn conversation context: `/api/chat` now loads the full message history for a conversation from Supabase and sends it to Gemini as context, instead of just the latest message. Maps `assistant` role to Gemini's expected `model` role.
+- Found and fixed a related bug during testing: clicking into an existing conversation from the sidebar and immediately sending a follow-up message could leak the raw `__CONVERSATION_ID__..._END__` stream marker into the displayed message. Root cause was a stale-state race condition — `conversationId` read from React state could lag behind the actual current value at the moment of submission.
+- Fixed by introducing `conversationIdRef` (a `useRef`) alongside the existing state, so `handleSubmit` always reads the current value synchronously rather than depending on render timing.
+- Verified: multi-turn memory works correctly (Gemini recalls info from earlier in the same conversation), and no marker leakage on rapid conversation-switch-then-send scenarios.
+
+**Gotchas:**
+- Good reminder that `useState` values inside closures (like `handleSubmit`) can be stale if read immediately after a state update from a different function — `useRef` is the standard fix when a value needs to be read synchronously regardless of render timing.
+
+**Next up:**
+- Card 9 (original backlog): Polish UI/UX pass — likely start pulling from the expanded 15-card polish backlog
+- Good candidates to start with: markdown rendering (users are already sending code-adjacent questions), auto-scroll, Enter-to-send

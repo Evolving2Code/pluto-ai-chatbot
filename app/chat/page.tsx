@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 type Message = {
   role: 'user' | 'assistant'
@@ -18,6 +18,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const conversationIdRef = useRef<string | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [error, setError] = useState('')
 
@@ -38,23 +39,25 @@ export default function Chat() {
   }
 
   async function loadConversation(id: string) {
-    try {
-      const response = await fetch(`/api/conversations/${id}/messages`)
-      if (response.ok) {
-        const data = await response.json()
-        setMessages(data)
-        setConversationId(id)
-        setError('')
-      }
-    } catch {
-      setError('Failed to load conversation. Please try again.')
+  try {
+    const response = await fetch(`/api/conversations/${id}/messages`)
+    if (response.ok) {
+      const data = await response.json()
+      setMessages(data)
+      setConversationId(id)
+      conversationIdRef.current = id
+      setError('')
     }
+  } catch {
+    setError('Failed to load conversation. Please try again.')
+  }
   }
 
   function startNewConversation() {
-    setMessages([])
-    setConversationId(null)
-    setError('')
+  setMessages([])
+  setConversationId(null)
+  conversationIdRef.current = null
+  setError('')
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -70,13 +73,13 @@ export default function Chat() {
     const assistantMessage: Message = { role: 'assistant', content: '' }
     setMessages((prev) => [...prev, assistantMessage])
 
-    const isNewConversation = conversationId === null
+    const isNewConversation = conversationIdRef.current === null
 
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.content, conversationId }),
+        body: JSON.stringify({ message: userMessage.content, conversationId: conversationIdRef.current }),
       })
 
       if (!response.ok) {
@@ -91,7 +94,7 @@ export default function Chat() {
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
-      let idExtracted = conversationId !== null
+      let idExtracted = conversationIdRef.current !== null
 
       while (true) {
         const { done, value } = await reader.read()
@@ -103,11 +106,13 @@ export default function Chat() {
           buffer += chunk
           const match = buffer.match(/^__CONVERSATION_ID__(.+?)__END__/)
           if (match) {
-            setConversationId(match[1])
-            idExtracted = true
-            chunk = buffer.slice(match[0].length)
-            buffer = ''
-          } else {
+  setConversationId(match[1])
+  conversationIdRef.current = match[1]
+  idExtracted = true
+  chunk = buffer.slice(match[0].length)
+  buffer = ''
+          }
+          else {
             continue
           }
         }
