@@ -110,3 +110,21 @@ Development moved from the original Android/Termux setup (Claude Code via OpenRo
 **Next up:**
 - Card 7: Persist messages to Supabase (currently messages live only in React state, vanish on refresh)
 - Clean up stale duplicate Supabase cookie at some point
+
+## Session 7 — 2026-07-13
+
+**Done:**
+- Added auth check to `/api/chat` (previously unprotected — now requires a logged-in session)
+- `/api/chat` now creates a `conversations` row on first message, saves both user and assistant messages to `messages`
+- Conversation ID passed back to client via a stream marker so follow-up messages in the same session attach correctly
+- Added `GET /api/conversations` — lists the logged-in user's conversations (RLS handles scoping automatically, no manual `user_id` filter needed)
+- Added `GET /api/conversations/[id]/messages` — fetches messages for a specific conversation
+- Updated `/chat` page: loads conversation list into sidebar on mount, clicking a conversation loads its message history, "+ New conversation" clears the view for a fresh chat
+- Verified full loop: send message → creates conversation + saves messages → appears in sidebar → click to reload → new conversation button works
+
+**Gotchas:**
+- Had a paste mishap where new `handleSubmit` code was pasted into the middle of the old file instead of replacing it, creating duplicate `'use client'`, duplicate imports, and two `return` statements. Fixed by deleting and recreating the file from scratch rather than patching the mess. Lesson: for full-file replacements, safest approach is `rm` then `nano` fresh, rather than trying to select-all in an editor.
+
+**Next up:**
+- Card 8: Error handling & loading states (API failures, empty responses, network errors — currently no try/catch anywhere in the chat flow)
+- Still pending: clean up stale duplicate Supabase cookie noticed in proxy logs a couple sessions back

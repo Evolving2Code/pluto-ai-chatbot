@@ -1,10 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 type Message = {
   role: 'user' | 'assistant'
   content: string
+}
+
+type Conversation = {
+  id: string
+  title: string
+  created_at: string
 }
 
 export default function Chat() {
@@ -12,6 +18,33 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const [conversations, setConversations] = useState<Conversation[]>([])
+
+  useEffect(() => {
+    loadConversations()
+  }, [])
+
+  async function loadConversations() {
+    const response = await fetch('/api/conversations')
+    if (response.ok) {
+      const data = await response.json()
+      setConversations(data)
+    }
+  }
+
+  async function loadConversation(id: string) {
+    const response = await fetch(`/api/conversations/${id}/messages`)
+    if (response.ok) {
+      const data = await response.json()
+      setMessages(data)
+      setConversationId(id)
+    }
+  }
+
+  function startNewConversation() {
+    setMessages([])
+    setConversationId(null)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -40,6 +73,7 @@ export default function Chat() {
     const decoder = new TextDecoder()
     let buffer = ''
     let idExtracted = conversationId !== null
+    const isNewConversation = conversationId === null
 
     while (true) {
       const { done, value } = await reader.read()
@@ -71,20 +105,37 @@ export default function Chat() {
     }
 
     setLoading(false)
+
+    // Refresh the sidebar if this was a new conversation
+    if (isNewConversation) {
+      loadConversations()
+    }
   }
 
   return (
     <div className="flex h-screen">
       <aside className="w-64 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4 flex flex-col">
         <h2 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Conversations</h2>
-        <div className="flex-1 overflow-y-auto">
-          <p className="text-sm text-gray-400 dark:text-gray-500">No conversations yet</p>
+        <div className="flex-1 overflow-y-auto space-y-1">
+          {conversations.length === 0 && (
+            <p className="text-sm text-gray-400 dark:text-gray-500">No conversations yet</p>
+          )}
+          {conversations.map((conv) => (
+            <button
+              key={conv.id}
+              onClick={() => loadConversation(conv.id)}
+              className={`w-full text-left text-sm p-2 rounded truncate ${
+                conv.id === conversationId
+                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              {conv.title}
+            </button>
+          ))}
         </div>
         <button
-          onClick={() => {
-            setMessages([])
-            setConversationId(null)
-          }}
+          onClick={startNewConversation}
           className="mt-4 bg-black text-white dark:bg-white dark:text-black rounded p-2 text-sm"
         >
           + New conversation
