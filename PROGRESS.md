@@ -177,3 +177,21 @@ Development moved from the original Android/Termux setup (Claude Code via OpenRo
 **Next up:**
 - Continue polish backlog: auto-generated conversation titles, conversation rename/delete, copy button on messages, regenerate/stop generation
 - Still pending: stale duplicate Supabase cookie cleanup (minor, non-blocking)
+
+## Session 11 — 2026-07-15 (continued)
+
+**Done:**
+- Attempted AI-generated conversation titles (using Gemini to summarize the first message into a short title) — implemented, tested, worked well
+- Discovered this doubled API usage per new conversation, hitting the Gemini free tier's 20 requests/day limit during testing
+- Investigated whether multiple API keys/accounts could raise the effective limit — confirmed rate limits are per-project (not per-key), and that Google's ToS discourages creating multiple accounts specifically to bypass usage limits — decided against this approach
+- Investigated routing through OpenRouter instead — found it would require a real rewrite (different SDK/API shape, OpenAI-compatible format vs `@google/genai`), and would actually cost slightly more than Google's own paid tier due to OpenRouter's added platform fee, for the same per-token model pricing
+- Decided to revert to simple truncated titles for now to conserve quota during active development, and revisit AI-generated titles (or enabling Google Cloud billing for Tier 1) later once testing is less frequent
+- Added console.error logging around Gemini API calls, which made this diagnosis possible (previously errors were only shown as a generic message to the user, hiding the real cause)
+
+**Gotchas:**
+- A 429 "Gemini API error" during testing was initially suspected to be content-related (a location-based question) — turned out to be unrelated, just free-tier quota exhaustion from cumulative testing. Good reminder to check server logs for the *actual* error before speculating about cause.
+- Free tier is 20 requests/day for `gemini-2.5-flash` — resets at midnight Pacific time. Worth pacing manual testing accordingly.
+
+**Next up:**
+- Continue polish backlog: conversation rename/delete, copy button on messages, regenerate/stop generation
+- Revisit AI title generation + Tier 1 billing decision later, once core polish is further along

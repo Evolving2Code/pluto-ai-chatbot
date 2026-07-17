@@ -4,6 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
 
+function generateTitle(message: string): string {
+  return message.slice(0, 50)
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
 
@@ -34,9 +38,11 @@ export async function POST(request: NextRequest) {
 
   try {
     if (!currentConversationId) {
+      const title = generateTitle(message)
+
       const { data: newConversation, error: convError } = await supabase
         .from('conversations')
-        .insert({ user_id: user.id, title: message.slice(0, 50) })
+        .insert({ user_id: user.id, title })
         .select()
         .single()
 
@@ -56,7 +62,6 @@ export async function POST(request: NextRequest) {
     return new Response('Database error', { status: 500 })
   }
 
-  // Load full conversation history so Gemini has memory of prior turns
   let history: { role: string; content: string }[] = []
   try {
     const { data: pastMessages, error: historyError } = await supabase
@@ -74,7 +79,6 @@ export async function POST(request: NextRequest) {
     return new Response('Database error', { status: 500 })
   }
 
-  // Gemini expects roles as 'user' and 'model', not 'assistant'
   const contents = history.map((msg) => ({
     role: msg.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: msg.content }],
@@ -86,7 +90,8 @@ export async function POST(request: NextRequest) {
       model: 'gemini-2.5-flash',
       contents,
     })
-  } catch {
+  } catch (err) {
+    console.error('Gemini generateContentStream error:', err)
     return new Response('Gemini API error — please try again', { status: 502 })
   }
 
