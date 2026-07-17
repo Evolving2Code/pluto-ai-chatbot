@@ -28,6 +28,7 @@ export default function Chat() {
   const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const longPressTimer = useRef<NodeJS.Timeout | null>(null)
 
@@ -73,6 +74,15 @@ useEffect(() => {
     conversationIdRef.current = null
     setError('')
     setSidebarOpen(false)
+  }
+  async function copyMessage(content: string, index: number) {
+  try {
+    await navigator.clipboard.writeText(content)
+    setCopiedIndex(index)
+    setTimeout(() => setCopiedIndex(null), 1500)
+  } catch {
+    setError('Failed to copy message.')
+  }
   }
 
   function handleTouchStart(id: string) {
@@ -331,50 +341,58 @@ useEffect(() => {
             </p>
           )}
           {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[85%] md:max-w-md rounded p-2 px-3 ${
-                  msg.role === 'user'
-                    ? 'bg-black text-white dark:bg-white dark:text-black'
-                    : 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100'
-                }`}
-              >
-                {msg.role === 'assistant' ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown
-                      components={{
-                        code(props) {
-                          const { children, className, ...rest } = props
-                          const match = /language-(\w+)/.exec(className || '')
-                          return match ? (
-                            <SyntaxHighlighter
-                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                              style={oneDark as any}
-                              language={match[1]}
-                              PreTag="div"
-                            >
-                              {String(children).replace(/\n$/, '')}
-                            </SyntaxHighlighter>
-                          ) : (
-                            <code className={className} {...rest}>
-                              {children}
-                            </code>
-                          )
-                        },
-                      }}
-                    >
-                      {msg.content || (loading && i === messages.length - 1 ? '...' : '')}
-                    </ReactMarkdown>
-                  </div>
+  <div
+    key={i}
+    className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+  >
+    <div
+      className={`max-w-[85%] md:max-w-md rounded p-2 px-3 ${
+        msg.role === 'user'
+          ? 'bg-black text-white dark:bg-white dark:text-black'
+          : 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100'
+      }`}
+    >
+      {msg.role === 'assistant' ? (
+        <div className="prose prose-sm dark:prose-invert max-w-none">
+          <ReactMarkdown
+            components={{
+              code(props) {
+                const { children, className, ...rest } = props
+                const match = /language-(\w+)/.exec(className || '')
+                return match ? (
+                  <SyntaxHighlighter
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    style={oneDark as any}
+                    language={match[1]}
+                    PreTag="div"
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
                 ) : (
-                  msg.content
-                )}
-              </div>
-            </div>
-          ))}
+                  <code className={className} {...rest}>
+                    {children}
+                  </code>
+                )
+              },
+            }}
+          >
+            {msg.content || (loading && i === messages.length - 1 ? '...' : '')}
+          </ReactMarkdown>
+        </div>
+      ) : (
+        msg.content
+      )}
+    </div>
+    {msg.role === 'assistant' && msg.content && (
+      <button
+        onClick={() => copyMessage(msg.content, i)}
+        className="mt-1 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-1"
+      >
+        {copiedIndex === i ? 'Copied!' : 'Copy'}
+      </button>
+    )}
+  </div>
+))}
           <div ref={messagesEndRef} />
         </div>
 
