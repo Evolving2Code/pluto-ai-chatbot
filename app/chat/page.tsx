@@ -29,6 +29,7 @@ export default function Chat() {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const longPressTimer = useRef<NodeJS.Timeout | null>(null)
 
@@ -83,6 +84,9 @@ useEffect(() => {
   } catch {
     setError('Failed to copy message.')
   }
+  }
+  function stopGeneration() {
+  abortControllerRef.current?.abort()
   }
 
   function handleTouchStart(id: string) {
@@ -168,15 +172,19 @@ useEffect(() => {
 
     const isNewConversation = conversationIdRef.current === null
 
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMessage.content,
-          conversationId: conversationIdRef.current,
-        }),
-      })
+    const controller = new AbortController()
+abortControllerRef.current = controller
+
+try {
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: userMessage.content,
+      conversationId: conversationIdRef.current,
+    }),
+    signal: controller.signal,
+  })
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -226,13 +234,18 @@ useEffect(() => {
         loadConversations()
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Something went wrong. Please try again.'
-      )
-      setMessages((prev) => prev.slice(0, -1))
-    } finally {
-      setLoading(false)
-    }
+  if (err instanceof Error && err.name === 'AbortError') {
+    // User intentionally stopped generation — keep partial response, no error shown
+  } else {
+    setError(
+      err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+    )
+    setMessages((prev) => prev.slice(0, -1))
+  }
+} finally {
+  setLoading(false)
+  abortControllerRef.current = null
+}
   }
 
   return (
@@ -412,13 +425,22 @@ useEffect(() => {
             className="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none"
             disabled={loading}
           />
-          <button
-            type="submit"
-            className="bg-black text-white dark:bg-white dark:text-black rounded px-4 disabled:opacity-50"
-            disabled={loading}
-          >
-            Send
-          </button>
+          {loading ? (
+  <button
+    type="button"
+    onClick={stopGeneration}
+    className="bg-red-600 text-white rounded px-4"
+  >
+    Stop
+  </button>
+) : (
+  <button
+    type="submit"
+    className="bg-black text-white dark:bg-white dark:text-black rounded px-4 disabled:opacity-50"
+  >
+    Send
+  </button>
+)}
         </form>
       </main>
 
