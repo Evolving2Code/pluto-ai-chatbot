@@ -25,11 +25,15 @@ export default function Chat() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [error, setError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null)
 
-  useEffect(() => {
-    loadConversations()
-  }, [])
+useEffect(() => {
+  loadConversations()
+}, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -69,6 +73,67 @@ export default function Chat() {
     conversationIdRef.current = null
     setError('')
     setSidebarOpen(false)
+  }
+
+  function handleTouchStart(id: string) {
+    longPressTimer.current = setTimeout(() => {
+      setMenuOpenFor(id)
+    }, 500)
+  }
+
+  function handleTouchEnd() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+
+  function startRename(conv: Conversation) {
+    setRenamingId(conv.id)
+    setRenameValue(conv.title)
+    setMenuOpenFor(null)
+  }
+
+  async function submitRename(id: string) {
+    if (!renameValue.trim()) {
+      setRenamingId(null)
+      return
+    }
+    try {
+      const response = await fetch(`/api/conversations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: renameValue.trim() }),
+      })
+      if (response.ok) {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, title: renameValue.trim() } : c))
+        )
+      } else {
+        setError('Failed to rename conversation.')
+      }
+    } catch {
+      setError('Failed to rename conversation.')
+    } finally {
+      setRenamingId(null)
+    }
+  }
+
+  async function deleteConversation(id: string) {
+    setMenuOpenFor(null)
+    try {
+      const response = await fetch(`/api/conversations/${id}`, { method: 'DELETE' })
+      if (response.ok) {
+        setConversations((prev) => prev.filter((c) => c.id !== id))
+        if (conversationId === id) {
+          startNewConversation()
+        }
+      } else {
+        setError('Failed to delete conversation.')
+      }
+    } catch {
+      setError('Failed to delete conversation.')
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -115,37 +180,37 @@ export default function Chat() {
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
-let idExtracted = false
+      let idExtracted = false
 
-while (true) {
-  const { done, value } = await reader.read()
-  if (done) break
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
 
-  let chunk = decoder.decode(value)
+        let chunk = decoder.decode(value)
 
-  if (!idExtracted) {
-    buffer += chunk
-    const match = buffer.match(/^__CONVERSATION_ID__(.+?)__END__/)
-    if (match) {
-      setConversationId(match[1])
-      conversationIdRef.current = match[1]
-      idExtracted = true
-      chunk = buffer.slice(match[0].length)
-      buffer = ''
-    } else {
-      continue
-    }
-  }
+        if (!idExtracted) {
+          buffer += chunk
+          const match = buffer.match(/^__CONVERSATION_ID__(.+?)__END__/)
+          if (match) {
+            setConversationId(match[1])
+            conversationIdRef.current = match[1]
+            idExtracted = true
+            chunk = buffer.slice(match[0].length)
+            buffer = ''
+          } else {
+            continue
+          }
+        }
 
-  setMessages((prev) => {
-    const updated = [...prev]
-    updated[updated.length - 1] = {
-      ...updated[updated.length - 1],
-      content: updated[updated.length - 1].content + chunk,
-    }
-    return updated
-  })
-}
+        setMessages((prev) => {
+          const updated = [...prev]
+          updated[updated.length - 1] = {
+            ...updated[updated.length - 1],
+            content: updated[updated.length - 1].content + chunk,
+          }
+          return updated
+        })
+      }
 
       if (isNewConversation) {
         loadConversations()
@@ -162,7 +227,6 @@ while (true) {
 
   return (
     <div className="flex h-dvh relative">
-      {/* Mobile overlay — click to close sidebar */}
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
@@ -170,7 +234,6 @@ while (true) {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={`fixed md:static inset-y-0 left-0 z-30 w-64 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4 flex flex-col transform transition-transform duration-200 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -182,19 +245,52 @@ while (true) {
             <p className="text-sm text-gray-400 dark:text-gray-500">No conversations yet</p>
           )}
           {conversations.map((conv) => (
-            <button
-              key={conv.id}
-              onClick={() => loadConversation(conv.id)}
-              className={`w-full text-left text-sm p-2 rounded truncate ${
-                conv.id === conversationId
-                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
-            >
-              {conv.title}
-            </button>
+            <div key={conv.id} className="relative group">
+              {renamingId === conv.id ? (
+                <input
+                  autoFocus
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={() => submitRename(conv.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') submitRename(conv.id)
+                    if (e.key === 'Escape') setRenamingId(null)
+                  }}
+                  className="w-full text-sm p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                />
+              ) : (
+                <button
+                  onClick={() => loadConversation(conv.id)}
+                  onTouchStart={() => handleTouchStart(conv.id)}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchCancel={handleTouchEnd}
+                  className={`w-full text-left text-sm p-2 pr-8 rounded truncate ${
+                    conv.id === conversationId
+                      ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  {conv.title}
+                </button>
+              )}
+
+              {renamingId !== conv.id && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setMenuOpenFor(menuOpenFor === conv.id ? null : conv.id)
+                  }}
+                  className="hidden md:group-hover:block absolute right-1 top-1/2 -translate-y-1/2 p-1 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                  aria-label="Conversation options"
+                >
+                  ⋮
+                </button>
+              )}
+
+            </div>
           ))}
         </div>
+
         <button
           onClick={startNewConversation}
           className="mt-4 bg-black text-white dark:bg-white dark:text-black rounded p-2 text-sm"
@@ -203,9 +299,7 @@ while (true) {
         </button>
       </aside>
 
-      {/* Main chat area */}
       <main className="flex-1 flex flex-col min-w-0">
-        {/* Mobile top bar with hamburger */}
         <div className="md:hidden flex items-center gap-3 p-3 border-b border-gray-200 dark:border-gray-700">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -295,7 +389,7 @@ while (true) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Chat with Pluto"
+            placeholder="Chat with Pluto... (Shift+Enter to send)"
             rows={1}
             className="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none"
             disabled={loading}
@@ -309,6 +403,36 @@ while (true) {
           </button>
         </form>
       </main>
+
+      {menuOpenFor && (
+        <div
+          onClick={() => setMenuOpenFor(null)}
+          className="fixed inset-0 z-50 bg-black/30 flex items-end md:items-center justify-center"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-gray-800 rounded-t-lg md:rounded-lg shadow-lg w-full md:w-64 overflow-hidden"
+          >
+            <button
+              onClick={() => {
+                const conv = conversations.find((c) => c.id === menuOpenFor)
+                if (conv) startRename(conv)
+              }}
+              className="w-full text-left text-base md:text-sm px-4 py-3 md:py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700"
+            >
+              Rename
+            </button>
+            <button
+              onClick={() => {
+                if (menuOpenFor) deleteConversation(menuOpenFor)
+              }}
+              className="w-full text-left text-base md:text-sm px-4 py-3 md:py-2 text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

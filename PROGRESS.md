@@ -195,3 +195,24 @@ Development moved from the original Android/Termux setup (Claude Code via OpenRo
 **Next up:**
 - Continue polish backlog: conversation rename/delete, copy button on messages, regenerate/stop generation
 - Revisit AI title generation + Tier 1 billing decision later, once core polish is further along
+
+## Session 12 — 2026-07-15
+
+**Done:**
+- Added conversation rename and delete functionality
+- New API routes: `PATCH /api/conversations/[id]` (rename) and `DELETE /api/conversations/[id]` — both RLS-protected, delete relies on the schema's existing `on delete cascade` for messages cleanup
+- UI: three-dot menu button appears on hover for desktop/pointer devices, long-press (500ms) triggers the same menu on touch devices
+- Went through several rounds of debugging before landing on a working design:
+  - First attempt (anchored dropdown + invisible click-outside overlay) had the overlay intercepting clicks meant for the menu itself
+  - Second attempt (window-level touchend listener to close the menu) closed the menu on the same touchend that ended the long-press, before a selection could be made
+  - Third attempt (touchstart-based listener with delay) still selected the wrong element — turned out touch coordinates were landing on the conversation row underneath an imprecisely-positioned dropdown
+  - Final fix: replaced the anchored dropdown entirely with a fullscreen modal (backdrop + centered/bottom-sheet panel), which removes ambiguity about what's clickable
+  - Found and fixed one more bug: nesting the modal inside the sidebar (which has its own `fixed` + `transform` positioning for the mobile drawer) created a CSS containing-block context that constrained the modal to the sidebar's bounds. Fixed by moving the modal to the top level of the component tree.
+
+**Gotchas:**
+- `position: fixed` children are constrained to the nearest ancestor with a `transform` (or a few other properties) applied, not necessarily the viewport — easy to miss, since it looks correct until you nest a fixed-position modal inside another fixed/transformed component.
+- Touch interaction patterns (long-press, tap-outside-to-close) have more edge cases than they first appear — worth testing on a real device early rather than assuming desktop-style hover/click patterns will translate directly.
+
+**Next up:**
+- Continue polish backlog: copy button on messages, regenerate/stop generation
+- Still haven't tested the new rename/delete UI on an actual desktop-width view — only mobile and Chrome's imperfect "desktop site" toggle have been used so far
