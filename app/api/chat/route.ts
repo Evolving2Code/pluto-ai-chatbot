@@ -21,11 +21,13 @@ export async function POST(request: NextRequest) {
 
   let message: string
   let conversationId: string | null
+  let isRegenerate: boolean
 
   try {
     const body = await request.json()
     message = body.message
     conversationId = body.conversationId
+    isRegenerate = Boolean(body.isRegenerate)
 
     if (!message || typeof message !== 'string' || !message.trim()) {
       return new Response('Message is required', { status: 400 })
@@ -53,36 +55,46 @@ export async function POST(request: NextRequest) {
       currentConversationId = newConversation.id
     }
 
-    await supabase.from('messages').insert({
-      conversation_id: currentConversationId,
-      role: 'user',
-      content: message,
-    })
-  } catch {
-    return new Response('Database error', { status: 500 })
-  }
-
-  let history: { role: string; content: string }[] = []
-  try {
-    const { data: pastMessages, error: historyError } = await supabase
-      .from('messages')
-      .select('role, content')
-      .eq('conversation_id', currentConversationId)
-      .order('created_at', { ascending: true })
-
-    if (historyError) {
-      return new Response('Failed to load conversation history', { status: 500 })
+    if (!isRegenerate) {
+  await supabase.from('messages').insert({
+    conversation_id: currentConversationId,
+    role: 'user',
+    content: message,
+  })
     }
-
-    history = pastMessages || []
   } catch {
     return new Response('Database error', { status: 500 })
   }
 
-  const contents = history.map((msg) => ({
-    role: msg.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: msg.content }],
-  }))
+  let history: { id: string; role: string; content: string }[] = []
+try {
+  const { data: pastMessages, error: historyError } = await supabase
+  .from('messages')
+  .select('id, role, content')
+  .eq('conversation_id', currentConversationId)
+  .order('created_at', { ascending: true })
+  if (historyError) {
+    return new Response('Failed to load conversation history', { status: 500 })
+  }
+
+  history = pastMessages || []
+} catch {
+  return new Response('Database error', { status: 500 })
+}
+
+// On regenerate, drop the most recent assistant message from history
+// (it's the stale reply we're replacing) so Gemini sees the user's
+// question as the latest turn needing a response
+if (isRegenerate && history.length > 0 && history[history.length - 1].role === 'assistant') {
+  const staleAssistantId = history[history.length - 1].id
+  history = history.slice(0, -1)
+  await supabase.from('messages').delete().eq('id', staleAssistantId)
+}
+
+const contents = history.map((msg) => ({
+  role: msg.role === 'assistant' ? 'model' : 'user',
+  parts: [{ text: msg.content }],
+}))
 
   let response
   try {
@@ -104,11 +116,11 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode(`__CONVERSATION_ID__${currentConversationId}__END__`))
 
         for await (const chunk of response) {
-          const text = chunk.text
-          if (text) {
-            fullResponse += text
-            controller.enqueue(encoder.encode(text))
-          }
+  const text = chunk.text
+  if (text) {
+    fullResponse += text
+    controller.enqueue(encoder.encode(text))
+  }
         }
 
         if (fullResponse) {

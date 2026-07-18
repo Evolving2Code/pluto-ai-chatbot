@@ -216,3 +216,21 @@ Development moved from the original Android/Termux setup (Claude Code via OpenRo
 **Next up:**
 - Continue polish backlog: copy button on messages, regenerate/stop generation
 - Still haven't tested the new rename/delete UI on an actual desktop-width view — only mobile and Chrome's imperfect "desktop site" toggle have been used so far
+
+## Session 13 — 2026-07-17
+
+**Done:**
+- Added regenerate response feature: a Regenerate button appears under the most recent assistant message, re-requesting a fresh reply to the same user question
+- Hit a genuinely tricky bug: regenerated responses always came back empty, despite the API returning a clean 200 with no errors
+- Diagnosed step by step via server-side logging (added and later removed): confirmed Gemini itself was returning zero content chunks specifically on regenerate calls, not a client-side display issue
+- Root cause: sending Gemini a conversation history that already ends on an assistant turn (i.e., including the very reply being regenerated) gives it nothing meaningful to respond to — it correctly recognizes the "question" is already answered and returns essentially nothing
+- Attempted fix #1 (delete the stale assistant message from Supabase, then re-fetch history) didn't work reliably — logs showed the delete succeeded, but the very next read still returned the old row, a read-after-write consistency gap
+- Real fix: explicitly exclude the last assistant message from the in-memory history array before building the request to Gemini, rather than depending on the DB reflecting the delete in time. The delete is still performed for data cleanliness, but correctness no longer depends on its timing.
+
+**Gotchas:**
+- This is a good example of a bug that looked client-side (empty chat bubble) but was actually rooted in backend logic and even API/model-level behavior (Gemini's own response to a malformed conversation shape) — worth checking every layer with real evidence (server logs, actual chunk contents) rather than assuming the bug lives wherever the symptom is visible.
+- Read-after-write consistency (a write not being immediately visible to the very next read) is a real category of bug worth knowing about in database-backed apps generally, not just a Supabase quirk.
+
+**Next up:**
+- Continue polish backlog: better empty states/onboarding, message animations, visual polish (avatars, scrollbar styling)
+- Consider adding automated tests eventually, given how many subtle bugs have surfaced through manual testing alone this project

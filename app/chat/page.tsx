@@ -158,95 +158,124 @@ useEffect(() => {
   }
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!input.trim() || loading) return
+  e.preventDefault()
+  if (!input.trim() || loading) return
 
-    setError('')
-    const userMessage: Message = { role: 'user', content: input }
-    setMessages((prev) => [...prev, userMessage])
-    setInput('')
-    setLoading(true)
+  const userMessage: Message = { role: 'user', content: input }
+  setMessages((prev) => [...prev, userMessage])
+  setInput('')
 
-    const assistantMessage: Message = { role: 'assistant', content: '' }
-    setMessages((prev) => [...prev, assistantMessage])
-
-    const isNewConversation = conversationIdRef.current === null
-
-    const controller = new AbortController()
-abortControllerRef.current = controller
-
-try {
-  const response = await fetch('/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message: userMessage.content,
-      conversationId: conversationIdRef.current,
-    }),
-    signal: controller.signal,
-  })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(errorText || 'Something went wrong')
-      }
-
-      if (!response.body) {
-        throw new Error('No response received')
-      }
-
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let idExtracted = false
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        let chunk = decoder.decode(value)
-
-        if (!idExtracted) {
-          buffer += chunk
-          const match = buffer.match(/^__CONVERSATION_ID__(.+?)__END__/)
-          if (match) {
-            setConversationId(match[1])
-            conversationIdRef.current = match[1]
-            idExtracted = true
-            chunk = buffer.slice(match[0].length)
-            buffer = ''
-          } else {
-            continue
-          }
-        }
-
-        setMessages((prev) => {
-          const updated = [...prev]
-          updated[updated.length - 1] = {
-            ...updated[updated.length - 1],
-            content: updated[updated.length - 1].content + chunk,
-          }
-          return updated
-        })
-      }
-
-      if (isNewConversation) {
-        loadConversations()
-      }
-    } catch (err) {
-  if (err instanceof Error && err.name === 'AbortError') {
-    // User intentionally stopped generation — keep partial response, no error shown
-  } else {
-    setError(
-      err instanceof Error ? err.message : 'Something went wrong. Please try again.'
-    )
-    setMessages((prev) => prev.slice(0, -1))
-  }
-} finally {
-  setLoading(false)
-  abortControllerRef.current = null
+  await sendToGemini(userMessage.content)
 }
+
+async function regenerateLast() {
+  if (loading) return
+  const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')
+  if (!lastUserMessage) return
+
+  await sendToGemini(lastUserMessage.content, true, true)
+}
+
+async function sendToGemini(
+  messageContent: string,
+  isRegenerate = false,
+  removeLastAssistant = false
+) {
+  setError('')
+  setLoading(true)
+
+  const assistantMessage: Message = { role: 'assistant', content: '' }
+
+  if (removeLastAssistant) {
+    setMessages((prev) => {
+      const lastAssistantIndex = prev.map((m) => m.role).lastIndexOf('assistant')
+      const trimmed =
+        lastAssistantIndex === -1 ? prev : prev.slice(0, lastAssistantIndex)
+      return [...trimmed, assistantMessage]
+    })
+  } else {
+    setMessages((prev) => [...prev, assistantMessage])
   }
+
+  const isNewConversation = conversationIdRef.current === null
+
+  const controller = new AbortController()
+  abortControllerRef.current = controller
+
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: messageContent,
+        conversationId: conversationIdRef.current,
+        isRegenerate,
+      }),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(errorText || 'Something went wrong')
+    }
+
+    if (!response.body) {
+      throw new Error('No response received')
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let idExtracted = false
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      let chunk = decoder.decode(value)
+
+      if (!idExtracted) {
+        buffer += chunk
+        const match = buffer.match(/^__CONVERSATION_ID__(.+?)__END__/)
+        if (match) {
+          setConversationId(match[1])
+          conversationIdRef.current = match[1]
+          idExtracted = true
+          chunk = buffer.slice(match[0].length)
+          buffer = ''
+        } else {
+          continue
+        }
+      }
+
+      setMessages((prev) => {
+  const updated = [...prev]
+  updated[updated.length - 1] = {
+    ...updated[updated.length - 1],
+    content: updated[updated.length - 1].content + chunk,
+  }
+  console.log('Messages after chunk:', JSON.stringify(updated.map(m => ({ role: m.role, len: m.content.length })), null, 2))
+  return updated
+})
+    }
+
+    if (isNewConversation) {
+      loadConversations()
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      // User intentionally stopped generation
+    } else {
+      setError(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      )
+      setMessages((prev) => prev.slice(0, -1))
+    }
+  } finally {
+    setLoading(false)
+    abortControllerRef.current = null
+  }
+}
 
   return (
     <div className="flex h-dvh relative">
@@ -397,13 +426,24 @@ try {
       )}
     </div>
     {msg.role === 'assistant' && msg.content && (
+  <div className="flex gap-2 mt-1">
+    <button
+      onClick={() => copyMessage(msg.content, i)}
+      className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-1"
+    >
+      {copiedIndex === i ? 'Copied!' : 'Copy'}
+    </button>
+    {i === messages.length - 1 && (
       <button
-        onClick={() => copyMessage(msg.content, i)}
-        className="mt-1 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-1"
+        onClick={regenerateLast}
+        disabled={loading}
+        className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-1 disabled:opacity-50"
       >
-        {copiedIndex === i ? 'Copied!' : 'Copy'}
+        Regenerate
       </button>
     )}
+  </div>
+)}
   </div>
 ))}
           <div ref={messagesEndRef} />
